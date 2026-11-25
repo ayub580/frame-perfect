@@ -1,0 +1,7 @@
+.git
+.env
+.env.example
+.DS_Store
+node_modules/
+README.md
+docker-compose.yml

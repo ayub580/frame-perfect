@@ -1,0 +1,88 @@
+# Docker fills in ${RAWG_API_KEY} at container start (nginx image runs envsubst on /etc/nginx/templates).
+proxy_cache_path /var/cache/nginx/api levels=1:2 keys_zone=api:10m max_size=200m inactive=7d use_temp_path=off;
+limit_req_zone $binary_remote_addr zone=apirl:10m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=coverrl:10m rate=30r/s;
+
+server {
+    listen 80;
+    server_name localhost;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Look up API hosts at request time so nginx still starts if one is down
+    resolver 1.1.1.1 8.8.8.8 valid=300s ipv6=off;
+
+    # speedrun.com API v1: no key needed. Cached 5 min so all visitors share one upstream request (limit is ~100/min per IP).
+    location /api/speedrun/ {
+        limit_except GET { deny all; }
+        limit_req zone=apirl burst=20 nodelay;
+        set $sr https://www.speedrun.com;
+        rewrite ^/api/speedrun/(.*)$ /api/v1/$1 break;
+        proxy_pass $sr;
+        proxy_ssl_server_name on;
+        proxy_set_header Host www.speedrun.com;
+        proxy_set_header User-Agent "frame-perfect/1.0";
+        proxy_set_header Cookie "";
+        proxy_cache api;
+        proxy_cache_key "sr$request_uri";
+        proxy_cache_valid 200 5m;
+        proxy_cache_valid 404 1m;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_429 http_500 http_502 http_503;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        proxy_hide_header Set-Cookie;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=60" always;
+    }
+
+    # RAWG new-releases list. The API key is added here, so it never reaches the browser.
+    location = /api/releases {
+        limit_except GET { deny all; }
+        limit_req zone=apirl burst=20 nodelay;
+        set $rawg https://api.rawg.io;
+        set $args "$args&key=${RAWG_API_KEY}";
+        rewrite ^ /api/games break;
+        proxy_pass $rawg;
+        proxy_ssl_server_name on;
+        proxy_set_header Host api.rawg.io;
+        proxy_set_header Cookie "";
+        proxy_cache api;
+        proxy_cache_key "rawg$request_uri";
+        proxy_cache_valid 200 30m;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_429 http_500 http_502 http_503;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        proxy_hide_header Set-Cookie;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=300" always;
+    }
+
+    # RAWG cover lookups (same key, cached 7 days because covers rarely change)
+    location = /api/cover {
+        limit_except GET { deny all; }
+        limit_req zone=coverrl burst=60 nodelay;
+        set $rawg https://api.rawg.io;
+        set $args "$args&key=${RAWG_API_KEY}";
+        rewrite ^ /api/games break;
+        proxy_pass $rawg;
+        proxy_ssl_server_name on;
+        proxy_set_header Host api.rawg.io;
+        proxy_set_header Cookie "";
+        proxy_cache api;
+        proxy_cache_key "cover$request_uri";
+        proxy_cache_valid 200 7d;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_429 http_500 http_502 http_503;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        proxy_hide_header Set-Cookie;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=3600" always;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-store, no-cache, must-revalidate, max-age=0";
+        add_header Pragma "no-cache";
+        expires -1;
+    }
+}
