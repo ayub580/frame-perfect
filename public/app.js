@@ -179,14 +179,15 @@ function gamePage(app,g){
 }
 
 // ===== live data =====
-// nginx proxies these paths when self-hosted (see nginx.conf.template).
-// On GitHub Pages or static hosts without the proxy, the site skips /api/ requests and uses the built-in GAMES list with no errors.
-const STATIC_HOST=location.protocol==="file:"||/\.github\.io$/i.test(location.hostname);
+// nginx (nginx.conf.template) or Cloudflare Pages Functions (functions/api/) proxy these paths.
+// On GitHub Pages (or file://), the site skips /api/ requests and uses the built-in GAMES list with no errors.
+const PAGES_HOST=/(^|\.)pages\.dev$/i.test(location.hostname);
+const STATIC_HOST=location.protocol==="file:"||/(^|\.)github\.io$/i.test(location.hostname);
 let proxyOk=!STATIC_HOST;
 const api=async u=>{
   if(!proxyOk)return null;
   const r=await fetch(u);
-  if(r.status===404){proxyOk=false;return null}
+  if(r.status===404){if(!PAGES_HOST)proxyOk=false;return null}
   if(!r.ok)throw new Error(r.status);
   return r.json();
 };
