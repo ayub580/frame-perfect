@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ayub580.github.io/frame-perfect/sitemap.xml
+Sitemap: https://sheikhayubkhan9009-ui.github.io/frame-perfect/sitemap.xml
