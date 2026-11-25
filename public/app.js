@@ -91,8 +91,10 @@ rebuild();
 // Original generated cover art (shapes only, no game artwork)
 function art(g){
   if(g.img){const i=T("img","art");i.dataset.s=g.s;i.loading="lazy";i.alt="Cover art for "+g.t;
-    i.onerror=()=>{i.onerror=null;i.src=g.img};
-    i.src=g.img.replace("/media/games/","/media/crop/600/400/games/");return i}
+    const cropped=g.img.replace("/media/games/","/media/crop/600/400/games/");
+    let triedRaw=cropped===g.img;
+    i.onerror=()=>{if(!triedRaw){triedRaw=true;i.src=g.img;return}i.onerror=null;g.img=undefined;i.replaceWith(art(g))};
+    i.src=cropped;return i}
   const n=hash(g.s),h=n%360,v=n%4,c1=`hsl(${h} 42% 24%)`,c2=`hsl(${(h+40)%360} 62% 56%)`,c3=`hsl(${(h+200)%360} 55% 72%)`;let sh="";
   if(v===0)sh=`<circle cx="${130+n%140}" cy="125" r="${58+n%40}" fill="${c2}"/><rect y="215" width="400" height="16" fill="${c3}"/>`;
   else if(v===1)sh=`<polygon points="0,300 ${150+n%100},40 ${300+n%80},300" fill="${c2}"/><polygon points="130,300 330,120 400,300" fill="${c3}" opacity=".85"/>`;
@@ -197,7 +199,7 @@ const safe=u=>/^https?:\/\//i.test(u||"")?u:null;
 const fmtT=t=>{const h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=+(t%60).toFixed(2);return [h&&h+"h",(h||m)&&m+"m",s+"s"].filter(Boolean).join(" ")};
 const pname=p=>p&&((p.names&&p.names.international)||p.name)||"Unknown";
 
-// New releases from RAWG (last 14 days to next 90 days, most-wanted first)
+// New releases from /api/releases (Steam on Pages, RAWG when self-hosted with nginx)
 async function loadReleases(){
   if(!proxyOk)return false;
   const a=new Date(today),b=new Date(today);a.setDate(a.getDate()-14);b.setDate(b.getDate()+90);
@@ -268,7 +270,7 @@ async function records(box,g){
   }catch(e){}
 }
 
-// Cover art: for every game on screen with no image, look it up on RAWG (exact name match only), then swap it in
+// Cover art: for every game on screen with no image, look it up via /api/cover (exact name match only), then swap it in
 const covq=[];let covBusy=0;
 function fillCovers(){
   if(!proxyOk)return;
