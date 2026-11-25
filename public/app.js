@@ -199,7 +199,7 @@ const safe=u=>/^https?:\/\//i.test(u||"")?u:null;
 const fmtT=t=>{const h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=+(t%60).toFixed(2);return [h&&h+"h",(h||m)&&m+"m",s+"s"].filter(Boolean).join(" ")};
 const pname=p=>p&&((p.names&&p.names.international)||p.name)||"Unknown";
 
-// New releases from /api/releases (Steam on Pages, RAWG when self-hosted with nginx)
+// New releases from Steam via /api/releases
 async function loadReleases(){
   if(!proxyOk)return false;
   const a=new Date(today),b=new Date(today);a.setDate(a.getDate()-14);b.setDate(b.getDate()+90);
